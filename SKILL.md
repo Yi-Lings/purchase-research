@@ -9,41 +9,54 @@ description: >-
 
 # 购物研究助手
 
-## 前置条件
+## 前置
 
-- opencli 命令加 `--window background`；先跑一条测试，不通则全走 WebSearch
+- `opencli auth status` 确认 xiaohongshu `logged_in: true`，未登录则提示登录
+- browser 命令（search / ask / note / comments）末尾加 `--window background`（非全局 flag，auth/list 等不支持）
+- 命令失败走 WebSearch 兜底，**不准留空**
+- **搜索源返回 0 条结果，必须在输出开头加 `> 注：` 说明来源局限性**
 
-## 工作流
-
-### Step 1: 明确需求
+## Step 1: 明确需求
 
 确认三要素：**买什么、预算、特殊需求**。缺的追问。
 
-### Step 2: 小红书搜索
+## Step 2: 小红书搜索
 
-OpenCLI 可用：
 ```
+# 确认登录态
+opencli auth status | grep xiaohongshu
+# 显示 logged_in: false → 提示登录
+
+# 搜笔记
 opencli xiaohongshu search "<关键词>" -f json --window background
-opencli xiaohongshu note "<URL>" -f json --window background
+
+# AI 问答（推荐，效率最高）
+opencli xiaohongshu ask "<关键词> 推荐" --window background -f json
+# ask 返回 AI 总结 + 引用笔记原文节选，优于逐条读 note
 ```
 优先读点赞 >200 的笔记，评论区高频品牌重点记。
 
-兜底（OpenCLI 不通）：
+**登录处理：**
+- `logged_in: true` 但 search 仍返回 `AUTH_REQUIRED`（exitCode: 77）→ session 过期，提示重新登录
+- `AUTH_REQUIRED` → 「请打开 Edge/Chrome 登录 xiaohongshu.com，然后告诉我已登录」
+- 登录后重试 → 成功则继续，**失败则走 WebSearch**
+- 用户拒绝登录 → 直接 WebSearch
+
+**WebSearch 兜底：**
 ```
 WebSearch "site:xiaohongshu.com <品类> <品牌> 推荐 测评"
 ```
-**必须带 `site:xiaohongshu.com` 或具体品牌名**，泛搜易出聚合站。
+`site:xiaohongshu.com` 常被反爬返回空，**空时必须在输出开头加 `> 注：`**
 
-### Step 3: 全网搜索补充
+## Step 3: 全网搜索补充
 
 ```
-# 消费评测方向（避开股票/财报用负向词 -股票 -财报 -金融）
 WebSearch "<品类> 推荐 测评 红黑榜"
-WebSearch "<品牌A> vs <品牌B> 对比 哪个好"
+WebSearch "<品牌A> vs <品牌B> 对比 哪个好" -股票 -财报 -金融
 ```
 优先什么值得买（smzdm），用户测评质量高。
 
-### Step 4: 电商比价
+## Step 4: 电商比价
 
 搜索优先级：smzdm 成交价 → 慢慢比比价 → 电商直接搜
 ```
@@ -54,7 +67,7 @@ WebSearch "拼多多 <产品名> 百亿补贴"
 ```
 **铁律**：核对单支/单斤价防标题党；标注历史好价 vs 当前价；多平台对比；注明是否需领券/会员。
 
-### Step 5: 综合输出
+## Step 5: 综合输出
 
 ```markdown
 # 🛒 <产品名> 推荐 & 比价
@@ -64,4 +77,4 @@ WebSearch "拼多多 <产品名> 百亿补贴"
 ## 最终推荐 | 你的情况 | 买什么 | 理由 | 去哪买 | 多少钱
 ```
 
-**每条推荐附理由**（核心成分、价格优势、适用场景、竞品差异中至少两项）。来源受限时结果开头加 `> 注：` 说明局限性。
+**每条推荐附理由**（核心成分、价格优势、适用场景、竞品差异中至少两项）。来源受限时加 `> 注：`。
